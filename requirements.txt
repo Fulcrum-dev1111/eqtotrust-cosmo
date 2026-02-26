@@ -3,3 +3,8 @@ scipy
 pandas
 emcee
 matplotlib
+emcee
+matplotlib
+numpy
+pandas
+scipy
