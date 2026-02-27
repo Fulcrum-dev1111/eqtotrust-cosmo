@@ -1,0 +1,166 @@
+ot it. Below is a drop-in pantheon_likelihood.py that uses the full Pantheon+ covariance matrix (no diagonal shortcut), with a robust loader that works whether your cov file is:
+	•	a plain *.cov / *.txt (either flattened or NxN),
+	•	or absent (it will fall back to diagonal using sigma_mu).
+
+It uses a Cholesky solve (stable, fast) instead of explicit inversion.
+
+# pantheon_likelihood.py
+# Full-covariance Pantheon+ likelihood (no diagonal shortcut).
+# Dimensionless cosmology units (M_pl = 1) assumed by the solver.
+
+import os
+import numpy as np
+from scipy.interpolate import interp1d
+from scipy.linalg import cho_factor, cho_solve
+
+from coherence_scalar_cosmo import integrate
+
+
+# ----------------------------
+# Model: distances + mu(z)
+# ----------------------------
+
+def V(C, V0, k):
+    return V0 * np.exp(k * C)
+
+
+def luminosity_distance(z, a_grid, E_grid):
+    """
+    Dimensionless luminosity distance:
+      D_L(z) = (1+z) * integral_0^z dz'/E(z')
+    using the E(z) implied by the scalar-field integrator.
+    """
+    z_grid = 1.0 / a_grid - 1.0
+
+    # Ensure increasing z for integration / interpolation
+    order = np.argsort(z_grid)
+    z_grid = z_grid[order]
+    E_grid = E_grid[order]
+
+    # Comoving distance via cumulative integral in z
+    dz = np.diff(z_grid)
+    invE = 1.0 / np.maximum(E_grid, 1e-12)
+
+    Dc = np.zeros_like(z_grid)
+    # Trapezoid-ish cumulative (simple, consistent)
+    Dc[1:] = np.cumsum(dz * 0.5 * (invE[1:] + invE[:-1]))
+
+    Dc_interp = interp1d(z_grid, Dc, bounds_error=False, fill_value="extrapolate")
+    Dc_z = Dc_interp(z)
+
+    return (1.0 + z) * Dc_z
+
+
+def mu_model(z, params_cosmo, M_nuisance):
+    """
+    mu = 5 log10(D_L) + 25 + M
+    (H0 absorbed into nuisance M, consistent with many SN-only fits)
+    """
+    a0 = params_cosmo.get("a0", 1e-4)
+
+    # State y = [C, dC/da, E], E = H/H0
+    y0 = np.array([params_cosmo["C0"], params_cosmo["dC0"], 1.0], dtype=float)
+
+    a_grid, y = integrate(a0, 1.0, y0, params_cosmo, n=params_cosmo.get("n_grid", 4000))
+    E_grid = y[:, 2]
+
+    DL = luminosity_distance(z, a_grid, E_grid)
+
+    mu = 5.0 * np.log10(np.maximum(DL, 1e-30)) + 25.0 + M_nuisance
+    return mu
+
+
+# ----------------------------
+# Covariance handling
+# ----------------------------
+
+def _infer_square_dim_from_flat(n_flat: int, n_data: int) -> int:
+    """
+    If cov is provided as a flat vector, it must be N*N.
+    We prefer n_data if it matches; otherwise infer via sqrt.
+    """
+    if n_flat == n_data * n_data:
+        return n_data
+    root = int(np.sqrt(n_flat))
+    if root * root != n_flat:
+        raise ValueError(f"Covariance length {n_flat} is not a perfect square and "
+                         f"does not match N^2 with N={n_data}.")
+    return root
+
+
+def load_covariance(data, cov_path=None):
+    """
+    Loads full covariance matrix for mu residuals.
+    - If cov_path is None: tries common filenames in CWD.
+    - Accepts:
+        * NxN numeric matrix
+        * Flattened N*N vector (row-major)
+    Returns:
+        cov (N,N) float64
+    """
+    n = len(data["mu"])
+
+    candidates = []
+    if cov_path:
+        candidates.append(cov_path)
+    candidates += [
+        "pantheon_plus_cov.csv",
+        "pantheon_plus_cov.txt",
+        "pantheon_plus_cov.cov",
+        "pantheon_plus.cov",
+        "covmat.txt",
+        "covmat.cov",
+    ]
+
+    chosen = None
+    for p in candidates:
+        if p and os.path.exists(p):
+            chosen = p
+            break
+
+    if chosen is None:
+        # fall back to diagonal if provided
+        if "sigma_mu" in data and data["sigma_mu"] is not None:
+            s2 = np.asarray(data["sigma_mu"], dtype=float) ** 2
+            return np.diag(s2)
+        raise FileNotFoundError(
+            "No covariance file found and sigma_mu not provided. "
+            "Provide cov_path or include sigma_mu in dataset."
+        )
+
+    raw = np.loadtxt(chosen, delimiter="," if chosen.endswith(".csv") else None)
+    raw = np.asarray(raw, dtype=float)
+
+    # Handle 1D flattened covariance
+    if raw.ndim == 1:
+        N = _infer_square_dim_from_flat(raw.size, n)
+        cov = raw.reshape((N, N))
+    elif raw.ndim == 2:
+        cov = raw
+    else:
+        raise ValueError(f"Unexpected covariance array ndim={raw.ndim} from {chosen}.")
+
+    if cov.shape[0] != cov.shape[1]:
+        raise ValueError(f"Covariance matrix from {chosen} is not square: {cov.shape}")
+
+    if cov.shape[0] != n:
+        raise ValueError(
+            f"Covariance dimension {cov.shape[0]} does not match data length {n}. "
+            "Make sure your pantheon_plus.csv rows correspond exactly to the cov ordering."
+        )
+
+    return cov
+
+
+def chi2_full_cov(residual, cov):
+    """
+    chi2 = r^T C^{-1} r using Cholesky factorization.
+    """
+    # Small jitter for numerical stability if needed
+    jitter = 0.0
+    try:
+        c_fac = cho_factor(cov, lower=True, check_finite=False)
+    except Exception:
+        # Add tiny diagonal jitter and retry
+        jitter = 1e-12 * np.mean(np.diag(cov))
+ ...

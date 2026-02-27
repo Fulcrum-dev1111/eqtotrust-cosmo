@@ -2,39 +2,49 @@
 
 ## Overview
 
-A scalar-field cosmology model implemented in Python. Tests a potential of the form `V(C) = V_0 * e^(kC)` against the Pantheon+ Type Ia supernova dataset using MCMC parameter inference.
+A scalar-field cosmology model implemented in Python. Tests a potential of the form `V(C) = V_0 * e^(kC)` against the Pantheon+ Type Ia supernova dataset using MCMC parameter inference with full covariance.
 
 ## Project Structure
 
 - `coherence_scalar_cosmo.py` — ODE integrator (4th-order Runge-Kutta) for the modified Friedmann + Klein-Gordon system
-- `pantheon_likelihood.py` — Computes luminosity distances and Gaussian chi-squared log-likelihood
-- `ingest_pantheon.py` — Downloads and preprocesses the official Pantheon+SH0ES dataset from GitHub
-- `run_mcmc.py` — Runs MCMC sampling using `emcee` (32 walkers, 3000 steps, 500 burn-in); saves posterior to `posterior_samples.npy`
+- `pantheon_likelihood.py` — Full-covariance Pantheon+ likelihood using Cholesky decomposition (no diagonal shortcut)
+- `lcdm_likelihood.py` — Standard flat ΛCDM likelihood for baseline comparison (also uses full covariance)
+- `ingest_pantheon.py` — Downloads and preprocesses the official Pantheon+SH0ES dataset and STAT+SYS covariance matrix from GitHub
+- `run_mcmc.py` — Runs scalar-field MCMC (32 walkers, 3000 steps, checkpointing every 100 steps)
+- `run_mcmc_lcdm.py` — Runs ΛCDM baseline MCMC (32 walkers, 3000 steps, checkpointing every 100 steps)
+- `analyze_results.py` — Loads posterior samples, computes fit statistics (chi2, AIC), generates corner plot
 
 ## Data
 
 Downloaded from the official Pantheon+SH0ES DataRelease repo:
-`https://raw.githubusercontent.com/PantheonPlusSH0ES/DataRelease/main/Pantheon+_Data/4_DISTANCES_AND_COVAR/Pantheon+SH0ES.dat`
+- Data: `Pantheon+SH0ES.dat` → `pantheon_plus.csv` (1701 rows)
+- Covariance: `Pantheon+SH0ES_STAT+SYS.cov` → `pantheon_plus_cov.txt` (1701×1701 matrix)
 
-The ingestion script extracts `zHD`, `m_b_corr`, and `m_b_corr_err_DIAG` columns.
+Row ordering is preserved from the official files to ensure perfect alignment between data and covariance matrix.
 
 ## Dependencies
 
-Python 3.12 with: `numpy`, `scipy`, `pandas`, `emcee`, `matplotlib`
+Python 3.12 with: `numpy`, `scipy`, `pandas`, `emcee`, `matplotlib`, `tqdm`, `h5py`, `corner`
 
 ## Workflow
 
-The "Start application" workflow runs:
-1. `python ingest_pantheon.py` — fetches and cleans the supernova data
-2. `python run_mcmc.py` — runs MCMC and saves `posterior_samples.npy`
+The "Start application" workflow runs sequentially:
+1. `python ingest_pantheon.py` — fetches data + covariance (skips if already cached)
+2. `python run_mcmc.py` — scalar-field MCMC → `posterior_samples.npy` (checkpoints to `mcmc_checkpoint.h5`)
+3. `python run_mcmc_lcdm.py` — ΛCDM baseline MCMC → `posterior_samples_lcdm.npy` (checkpoints to `mcmc_lcdm_checkpoint.h5`)
 
 Output type: console (no web server).
 
-## Model Parameters
+## Scalar-Field Model Parameters (6)
 
 - `V0` — scalar potential amplitude
 - `k` — exponential slope
 - `Om` — matter density parameter
 - `C0` — initial scalar field value
 - `dC0` — initial scalar field derivative
+- `M` — distance modulus nuisance parameter
+
+## ΛCDM Baseline Parameters (2)
+
+- `Om` — matter density parameter
 - `M` — distance modulus nuisance parameter
