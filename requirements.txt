@@ -11,3 +11,4 @@ scipy
 tqdm
 tqdm
 h5py
+corner
