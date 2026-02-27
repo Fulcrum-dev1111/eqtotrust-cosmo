@@ -2,49 +2,43 @@
 
 ## Overview
 
-A scalar-field cosmology model implemented in Python. Tests a potential of the form `V(C) = V_0 * e^(kC)` against the Pantheon+ Type Ia supernova dataset using MCMC parameter inference with full covariance.
+A scalar-field cosmology model testing V(C) = V₀e^{kC} against Pantheon+ Type Ia supernova data using MCMC parameter inference with full covariance.
 
 ## Project Structure
 
-- `coherence_scalar_cosmo.py` — ODE integrator (4th-order Runge-Kutta) for the modified Friedmann + Klein-Gordon system
-- `pantheon_likelihood.py` — Full-covariance Pantheon+ likelihood using Cholesky decomposition (no diagonal shortcut)
-- `lcdm_likelihood.py` — Standard flat ΛCDM likelihood for baseline comparison (also uses full covariance)
-- `ingest_pantheon.py` — Downloads and preprocesses the official Pantheon+SH0ES dataset and STAT+SYS covariance matrix from GitHub
-- `run_mcmc.py` — Runs scalar-field MCMC (32 walkers, 3000 steps, checkpointing every 100 steps)
-- `run_mcmc_lcdm.py` — Runs ΛCDM baseline MCMC (32 walkers, 3000 steps, checkpointing every 100 steps)
-- `analyze_results.py` — Loads posterior samples, computes fit statistics (chi2, AIC), generates corner plot
+### Core Physics
+- `coherence_scalar_cosmo.py` — ODE integrator (RK4) for modified Friedmann + Klein-Gordon with matter
+- `pure_scalar_cosmo.py` — ODE integrator for pure scalar field (no matter, Phase 4)
 
-## Data
+### Likelihoods
+- `pantheon_likelihood.py` — Phase 2: Full-covariance likelihood (6 free params)
+- `lcdm_likelihood.py` — Standard flat ΛCDM baseline likelihood
+- `pantheon_likelihood_phase3.py` — Phase 3: Attractor-compressed (k, Ω_m), M marginalized
+- `pantheon_likelihood_phase4.py` — Phase 4: Pure scalar universe (k only), M marginalized
 
-Downloaded from the official Pantheon+SH0ES DataRelease repo:
+### MCMC Runners
+- `run_mcmc.py` — Phase 2 scalar-field MCMC (6 params)
+- `run_mcmc_lcdm.py` — ΛCDM baseline MCMC (2 params)
+- `run_mcmc_phase3.py` — Phase 3 attractor-compressed MCMC (2 params)
+- `run_mcmc_phase4.py` — Phase 4 pure scalar MCMC (1 param)
+
+### Data & Analysis
+- `ingest_pantheon.py` — Downloads Pantheon+SH0ES data + STAT+SYS covariance matrix
+- `analyze_results.py` — Phase 1 analysis
+- `analyze_phase2.py` — Phase 2 analysis (scalar vs ΛCDM comparison)
+
+## Data Sources
+
 - Data: `Pantheon+SH0ES.dat` → `pantheon_plus.csv` (1701 rows)
-- Covariance: `Pantheon+SH0ES_STAT+SYS.cov` → `pantheon_plus_cov.txt` (1701×1701 matrix)
-
-Row ordering is preserved from the official files to ensure perfect alignment between data and covariance matrix.
+- Covariance: `Pantheon+SH0ES_STAT+SYS.cov` → `pantheon_plus_cov.txt` (1701×1701)
 
 ## Dependencies
 
-Python 3.12 with: `numpy`, `scipy`, `pandas`, `emcee`, `matplotlib`, `tqdm`, `h5py`, `corner`
+Python 3.12: numpy, scipy, pandas, emcee, matplotlib, tqdm, h5py, corner
 
-## Workflow
+## Phase Summary
 
-The "Start application" workflow runs sequentially:
-1. `python ingest_pantheon.py` — fetches data + covariance (skips if already cached)
-2. `python run_mcmc.py` — scalar-field MCMC → `posterior_samples.npy` (checkpoints to `mcmc_checkpoint.h5`)
-3. `python run_mcmc_lcdm.py` — ΛCDM baseline MCMC → `posterior_samples_lcdm.npy` (checkpoints to `mcmc_lcdm_checkpoint.h5`)
-
-Output type: console (no web server).
-
-## Scalar-Field Model Parameters (6)
-
-- `V0` — scalar potential amplitude
-- `k` — exponential slope
-- `Om` — matter density parameter
-- `C0` — initial scalar field value
-- `dC0` — initial scalar field derivative
-- `M` — distance modulus nuisance parameter
-
-## ΛCDM Baseline Parameters (2)
-
-- `Om` — matter density parameter
-- `M` — distance modulus nuisance parameter
+- **Phase 1**: Diagonal-only likelihood, 6 free params
+- **Phase 2**: Full covariance, 6 params vs 2-param ΛCDM (ΔAIC = +3.7 for scalar)
+- **Phase 3**: Attractor compression (k, Ω_m), M marginalized (ΔAIC = +112.7)
+- **Phase 4**: Pure scalar universe, k only, no Ω_m (ΔAIC = +106.1)
