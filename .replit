@@ -27,4 +27,4 @@ outputType = "console"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "python ingest_pantheon.py && python run_mcmc_phase4.py 500"
+args = "python ingest_pantheon.py && python run_mcmc_phase6.py 500"
