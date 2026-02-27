@@ -10,3 +10,4 @@ pandas
 scipy
 tqdm
 tqdm
+h5py
