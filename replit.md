@@ -36,9 +36,13 @@ A scalar-field cosmology model testing V(C) = V₀e^{kC} against Pantheon+ Type 
 
 Python 3.12: numpy, scipy, pandas, emcee, matplotlib, tqdm, h5py, corner
 
+### Analysis
+- `analyze_wz.py` — Phase 5: Equation of state w(z), transition redshift, ΛCDM comparison plot
+
 ## Phase Summary
 
 - **Phase 1**: Diagonal-only likelihood, 6 free params
 - **Phase 2**: Full covariance, 6 params vs 2-param ΛCDM (ΔAIC = +3.7 for scalar)
 - **Phase 3**: Attractor compression (k, Ω_m), M marginalized (ΔAIC = +112.7)
 - **Phase 4**: Pure scalar universe, k only, no Ω_m (ΔAIC = +106.1)
+- **Phase 5**: Equation of state w(z) analysis — scalar field predicts w ≈ -0.999 with Δw ~ +0.0007 deviation from Λ
