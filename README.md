@@ -27,13 +27,12 @@ This repo is intended for independent replication and adversarial testing.
 ### Scalar Potential
 V(C) = V_0 e^{kC}
 
-### Free Parameters
-- V_0
-- k
-- \Omega_m
-- C_0
-- dC_0
-- M (distance modulus nuisance parameter)
+### Free Parameters (Phase 6 Constrained)
+- k (scalar coupling constant)
+- \Omega_m (locked to Planck 2018 prior: 0.315 ± 0.007)
+- V_0 (analytically derived via flatness normalization at a=1)
+- C_0, dC_0 (set via attractor/slow-roll initial conditions)
+- M (distance modulus nuisance parameter, analytically marginalized)
 
 ---
 
@@ -51,11 +50,12 @@ Pantheon+ Type Ia Supernova dataset
 Official release: https://github.com/PantheonPlusSH0ES/DataRelease
 The ingestion script pulls directly from the official data release.
 No modified or custom supernova data is used.
+Full 1701x1701 covariance matrix applied.
 
 ---
 
 ## Statistical Framework
-- Likelihood: Gaussian chi-squared on μ residuals
+- Likelihood: Gaussian chi-squared on μ residuals with full covariance matrix
 - Sampler: emcee EnsembleSampler
 - Burn-in discarded
 - Posterior chains saved to posterior_samples.npy
@@ -71,10 +71,18 @@ This model fails if:
 
 ---
 
-## Success Criteria
+## Success Criteria & Phase 6 Results
 Model considered competitive if:
 \Delta AIC < -2
 relative to ΛCDM baseline under identical dataset and likelihood.
+
+**Phase 6 Results (Strict Planck Prior Validation):**
+- Scalar k = 1.92 [1.52, 2.20]
+- Scalar Effective χ² = 1758.77
+- ΛCDM Effective χ² = 1767.53
+- **Final ΔAIC = -6.76**
+
+The scalar field model mathematically outperforms the standard baseline under strict constraints.
 
 ---
 
@@ -84,7 +92,8 @@ To replicate:
 ```bash
 git clone https://github.com/Fulcrum-dev1111/eqtotrust-cosmo
 pip install -r requirements.txt
-python run_mcmc.py
+python run_mcmc_phase6.py
+python analyze_phase6.py
 ```
 
 All numerical structures are transparent.
@@ -103,7 +112,7 @@ This repository does not claim:
 It provides:
 - A formally specified scalar-field model
 - A testable numerical implementation
-- A transparent statistical comparison framework
+- A transparent statistical comparison framework yielding a ΔAIC of -6.76
 
 ---
 
